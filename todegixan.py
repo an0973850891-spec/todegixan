@@ -33,7 +33,7 @@ st.markdown("""
     }
     /* 隱藏列印時不需要的網頁元素 */
     @media print {
-        .stButton, .stForm, header, footer {
+        .stButton, .stForm, header, footer, .no-print {
             display: none !important;
         }
     }
@@ -340,12 +340,10 @@ if st.session_state.calculated and st.session_state.results_data is not None:
 
     st.markdown("---")
     
-    # 標題與列印/匯出按鈕列
     head_col1, head_col2 = st.columns([3, 1])
     with head_col1:
         st.subheader("📊 多筆土地試算總結與同地號合併明細")
     with head_col2:
-        # 提供 CSV 下載按鈕
         csv_data = df_grouped.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
             label="📥 下載明細報表 (CSV)",
@@ -391,7 +389,7 @@ if st.session_state.calculated and st.session_state.results_data is not None:
                 st.write(f"**{round(row['一般用地稅額']):,} 元**")
             with card_col4:
                 st.caption("🏡 自用住宅稅額")
-                st.write(f"**{round(row['自用住宅稅額']):,} 元**")
+                st.write(f"**{round(row['自元住宅稅額'] if '自元住宅稅額' in row else row['自用住宅稅額']):,} 元**")
             st.markdown("<hr style='margin: 10px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
     with st.expander("📝 點此展開完整合併後數據對照表"):
@@ -399,23 +397,19 @@ if st.session_state.calculated and st.session_state.results_data is not None:
         df_display["申報現值總額"] = df_display["申報現值總額"].round()
         df_display["漲價總數額(a)"] = df_display["漲價總數額(a)"].round()
         df_display["一般用地稅額"] = df_display["一般用地稅額"].round()
-        df_display["自用住宅稅額"] = df_display["自用住宅稅額"].round()
+        df_display["自用住宅稅額"] = df_display["自용住宅稅額"] if "自용住宅稅額" in df_display else df_display["自用住宅稅額"]
         st.dataframe(df_display, use_container_width=True)
 
     diff_total = total_gen_tax - total_self_tax
     if diff_total > 0:
         st.success(f"💡 **整體節稅提示：** 若全部土地皆符合自用住宅資格，採用自用住宅總計可比一般用地**節省約 {round(diff_total):,} 元**！")
 
-    # --- 8. 列印輸出專屬按鈕 ---
+    # --- 8. 穩定可靠的列印輸出指引與按鈕 ---
     st.markdown("---")
+    st.info("💡 **列印說明：** 點擊下方按鈕或直接按下鍵盤快捷鍵 **`Ctrl + P`**（Mac 為 `Cmd + P`），即可將本頁試算報表列印成紙本或儲存為 PDF！")
+    
     print_col1, _ = st.columns([1, 4])
     with print_col1:
-        # 利用 JavaScript 觸發瀏覽器列印功能
-        st.markdown(
-            """
-            <button onclick="window.print();" style="width: 100%; background-color: #2563EB; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer;">
-                🖨️ 列印輸出報表
-            </button>
-            """,
-            unsafe_allow_html=True
-        )
+        # 改用標準 Streamlit 按鈕觸發網頁重新整理與列印提示
+        if st.button("🖨️ 準備列印報表", use_container_width=True, type="secondary"):
+            st.toast("請按鍵盤快捷鍵 Ctrl + P (或 Cmd + P) 開啟列印視窗！", icon="🖨️")
