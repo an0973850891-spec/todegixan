@@ -42,8 +42,12 @@ now = datetime.now()
 current_roc_year = now.year - 1911
 current_month = now.month
 
-# --- 2. 設定固定路徑讀取 D:\PY\cpispleym.xls ---
-excel_path = r"D:\PY\cpispleym.xls"
+# --- 2. 智慧判斷路徑：本地用 D:\PY\，雲端用相對路徑 ---
+if os.path.exists(r"D:\PY\cpispleym.xls"):
+    excel_path = r"D:\PY\cpispleym.xls"
+else:
+    # 雲端 Streamlit Cloud 環境（與程式同目錄）
+    excel_path = "cpispleym.xls"
 
 @st.cache_data
 def load_local_cpi_excel(path):
@@ -52,7 +56,7 @@ def load_local_cpi_excel(path):
         if os.path.exists(alt_path):
             path = alt_path
         else:
-            return None, f"找不到檔案！系統無法在指定路徑找到檔案：{path}。請確認 cpispleym.xls 是否確實已放在 D:\\PY 資料夾中。"
+            return None, f"找不到檔案！系統無法在指定路徑找到檔案：{path}。請確認 cpispleym.xls 是否已上傳至 GitHub 或放在 D:\\PY 資料夾中。"
     try:
         df = pd.read_excel(path, header=None)
         return df, None
@@ -148,7 +152,7 @@ district_options = county_district_map.get(selected_county, ["其他"])
 with col_c2:
     selected_district = st.selectbox("鄉鎮市區", options=district_options, key="selected_district_widget")
 
-# --- 5. 表單內部：地段、地號與其他明細（全面改為無按鈕的簡潔輸入框） ---
+# --- 5. 表單內部：地段、地號與其他明細 ---
 with st.form("add_land_form", clear_on_submit=False):
     col3, col4 = st.columns(2)
     with col3:
