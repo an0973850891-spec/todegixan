@@ -6,7 +6,7 @@ from datetime import datetime
 # 設定網頁標題與版面
 st.set_page_config(page_title="土地增值稅即時試算系統", page_icon="🏡", layout="wide")
 
-# --- 🎨 自定義 CSS 美化（淺橘底色與放大字體） ---
+# --- 🎨 自定義 CSS 美化與「強制只列印結果區域」的樣式 ---
 st.markdown("""
     <style>
     h1 {
@@ -31,6 +31,22 @@ st.markdown("""
         border: 1px solid #FFEDD5;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
+    
+    /* 🖨️ 強制列印設定：只讓指定結果區塊顯示，其餘全部隱藏 */
+    @media print {
+        body * {
+            visibility: hidden !important;
+        }
+        #printable-result-area, #printable-result-area * {
+            visibility: visible !important;
+        }
+        #printable-result-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -46,7 +62,6 @@ current_month = now.month
 if os.path.exists(r"D:\PY\cpispleym.xls"):
     excel_path = r"D:\PY\cpispleym.xls"
 else:
-    # 雲端 Streamlit Cloud 環境（與程式同目錄）
     excel_path = "cpispleym.xls"
 
 @st.cache_data
@@ -216,12 +231,23 @@ if add_submitted:
         st.session_state.land_list.append(new_land)
         st.success(f"✅ 已成功加入：{selected_county}{selected_district} {section_name}{land_number}號")
 
-# --- 6. 顯示目前已加入的土地清單與操作按鈕 ---
+# --- 6. 顯示目前已加入的土地清單與刪除/修改功能 ---
 if st.session_state.land_list:
     st.markdown("---")
     st.subheader("📋 目前已加入的土地清單")
-    df_current_lands = pd.DataFrame(st.session_state.land_list)
-    st.dataframe(df_current_lands, use_container_width=True)
+    
+    # 逐筆顯示清單與刪除按鈕，讓使用者可以精準刪除錯誤的某一筆
+    for i, land_item in enumerate(st.session_state.land_list):
+        c_info, c_del = st.columns([5, 1])
+        with c_info:
+            desc = f"**第 {i+1} 筆：** {land_item['縣市']}{land_item['鄉鎮市區']} {land_item['地段名稱']} {land_item['地號']}號 | 面積: {land_item['面積(m²)']} m² | 現值: {land_item['公告現值(元/m²)']} 元/m²"
+            st.write(desc)
+        with c_del:
+            if st.button("❌ 刪除", key=f"del_land_{i}", use_container_width=True):
+                st.session_state.land_list.pop(i)
+                st.session_state.calculated = False
+                st.session_state.results_data = None
+                st.rerun()
 
     col_btn1, col_btn2, _ = st.columns([1, 1, 4])
     with col_btn1:
@@ -237,7 +263,7 @@ if st.session_state.land_list:
 
     if calc_pressed:
         raw_results = []
-        for idx, row in df_current_lands.iterrows():
+        for idx, row in enumerate(st.session_state.land_list):
             county = row["縣市"]
             district = row["鄉鎮市區"]
             section = row["地段名稱"]
@@ -324,7 +350,7 @@ if st.session_state.land_list:
         st.session_state.calculated = True
         st.session_state.results_data = df_grouped
 
-# --- 7. 呈現累加與合併計算結果總表 ---
+# --- 7. 呈現累加與合併計算結果總表與列印匯出功能 ---
 if st.session_state.calculated and st.session_state.results_data is not None:
     df_grouped = st.session_state.results_data
 
@@ -334,7 +360,22 @@ if st.session_state.calculated and st.session_state.results_data is not None:
     total_current_val = df_grouped["申報現值總額"].sum()
 
     st.markdown("---")
-    st.subheader("📊 多筆土地試算總結與同地號合併明細")
+    
+    # ✨ 核心包覆容器：列印時只保留此容器內的加總與明細表
+    st.markdown('<div id="printable-result-area">', unsafe_allow_html=True)
+
+    head_col1, head_col2 = st.columns([3, 1])
+    with head_col1:
+        st.subheader("📊 多筆土地試算總結與同地號合併明細")
+    with head_col2:
+        csv_data = df_grouped.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 下載明細報表 (CSV)",
+            data=csv_data,
+            file_name=f"土地增值稅試算報表_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
     sum_col1, sum_col2, sum_col3 = st.columns(3)
     with sum_col1:
@@ -386,3 +427,9 @@ if st.session_state.calculated and st.session_state.results_data is not None:
     diff_total = total_gen_tax - total_self_tax
     if diff_total > 0:
         st.success(f"💡 **整體節稅提示：** 若全部土地皆符合自用住宅資格，採用自用住宅總計可比一般用地**節省約 {round(diff_total):,} 元**！")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- 8. 列印說明與導引 ---
+    st.markdown("---")
+    st.info("💡 **列印說明：** 當您按下鍵盤快捷鍵 **`Ctrl + P`**（Mac 為 `Cmd + P`）時，系統會**自動隱藏所有輸入與操作按鈕**，只保留上方的加總數據與下方的土地明細列表供您列印或儲存為 PDF！")
