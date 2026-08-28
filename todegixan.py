@@ -156,9 +156,9 @@ with col_c2:
 with st.form("add_land_form", clear_on_submit=False):
     col3, col4 = st.columns(2)
     with col3:
-        section_name = st.text_input("地段名稱", placeholder="例如：茄安段")
+        section_name = st.text_input("地段名稱(手動輸入)", placeholder="例如：茄安段")
     with col4:
-        land_number = st.text_input("地號", placeholder="例如：497")
+        land_number = st.text_input("地號(手動輸入)", placeholder="例如：497")
 
     st.markdown("---")
     
@@ -169,19 +169,19 @@ with st.form("add_land_form", clear_on_submit=False):
     with col6:
         last_month = st.selectbox("前次移轉月份", options=list(range(1, 13)), index=7)
     with col7:
-        curr_val_str = st.text_input("公告現值 (元/m²)", value="0.0")
+        curr_val_str = st.text_input("公告現值 (元/m²)(手動輸入)", value="0.0")
     with col8:
-        last_val_str = st.text_input("原地價 (元/m²)", value="0.0")
+        last_val_str = st.text_input("原地價 (元/m²)(手動輸入)", value="0.0")
 
     col9, col10, col11, col12 = st.columns(4)
     with col9:
-        area_str = st.text_input("面積 (m²)", value="0.0")
+        area_str = st.text_input("面積 (m²)(手動輸入)", value="0.0")
     with col10:
-        num_str = st.text_input("持分分子", value="1.0")
+        num_str = st.text_input("持分分子(手動輸入)", value="1.0")
     with col11:
-        den_str = st.text_input("持分分母", value="1.0")
+        den_str = st.text_input("持分分母(手動輸入)", value="1.0")
     with col12:
-        offset_str = st.text_input("抵繳地價稅額 (元)", value="0.0")
+        offset_str = st.text_input("抵繳地價稅額 (元)(手動輸入)", value="0.0")
 
     add_submitted = st.form_submit_button("➕ 加入清單", use_container_width=True)
 
