@@ -6,7 +6,7 @@ from datetime import datetime
 # 設定網頁標題與版面
 st.set_page_config(page_title="土地增值稅即時試算系統", page_icon="🏡", layout="wide")
 
-# --- 🎨 自定義 CSS 美化與「列印專屬過濾」 ---
+# --- 🎨 自定義 CSS 美化與「強制只列印結果區域」的樣式 ---
 st.markdown("""
     <style>
     h1 {
@@ -32,17 +32,19 @@ st.markdown("""
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     
-    /* 🖨️ 核心列印過濾規則：列印時只保留計算總結與明細區塊，隱藏所有輸入與操作按鈕 */
+    /* 🖨️ 強制列印設定：只讓指定結果區塊顯示，其餘全部隱藏 */
     @media print {
-        header, footer, nav, 
-        .stForm, 
-        button, 
-        .streamlit-expanderHeader,
-        div[data-testid="stSidebar"] {
-            display: none !important;
+        body * {
+            visibility: hidden !important;
         }
-        body {
-            background-color: white !important;
+        #printable-result-area, #printable-result-area * {
+            visibility: visible !important;
+        }
+        #printable-result-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
         }
     }
     </style>
@@ -337,7 +339,7 @@ if st.session_state.land_list:
         st.session_state.calculated = True
         st.session_state.results_data = df_grouped
 
-# --- 7. 呈現累加與合併計算結果總表與列印匯出功能 ---
+# --- 7. 呈現累加與合併計算結果總表（包在 #printable-result-area 內，列印只會印出這區塊） ---
 if st.session_state.calculated and st.session_state.results_data is not None:
     df_grouped = st.session_state.results_data
 
@@ -348,6 +350,9 @@ if st.session_state.calculated and st.session_state.results_data is not None:
 
     st.markdown("---")
     
+    # ✨ 核心包覆容器：列印時只保留此容器內的加總與明細表
+    st.markdown('<div id="printable-result-area">', unsafe_allow_html=True)
+
     head_col1, head_col2 = st.columns([3, 1])
     with head_col1:
         st.subheader("📊 多筆土地試算總結與同地號合併明細")
@@ -412,6 +417,9 @@ if st.session_state.calculated and st.session_state.results_data is not None:
     if diff_total > 0:
         st.success(f"💡 **整體節稅提示：** 若全部土地皆符合自用住宅資格，採用自用住宅總計可比一般用地**節省約 {round(diff_total):,} 元**！")
 
-    # --- 8. 列印輸出指引 ---
+    # 關閉列印專屬容器
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- 8. 列印說明與導引 ---
     st.markdown("---")
-    st.info("💡 **列印說明：** 當您按下鍵盤快捷鍵 **`Ctrl + P`**（Mac 為 `Cmd + P`）時，系統會**自動隱藏所有輸入與操作按鈕**，只保留上方的加總數據與下方的土地明細列表供您列印或儲存為 PDF！")
+    st.info("💡 **列印說明：** 請直接按鍵盤快捷鍵 **`Ctrl + P`**（Mac 為 `Cmd + P`），預覽畫面將會**自動隱藏上方輸入欄位**，只保留上方的加總數據與下方的土地明細列表！")
