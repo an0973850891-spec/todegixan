@@ -6,7 +6,7 @@ from datetime import datetime
 # 設定網頁標題與版面
 st.set_page_config(page_title="土地增值稅即時試算系統", page_icon="🏡", layout="wide")
 
-# --- 🎨 自定義 CSS 美化（淺橘底色與放大字體） ---
+# --- 🎨 自定義 CSS 美化與「列印專屬過濾」 ---
 st.markdown("""
     <style>
     h1 {
@@ -31,10 +31,18 @@ st.markdown("""
         border: 1px solid #FFEDD5;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
-    /* 隱藏列印時不需要的網頁元素 */
+    
+    /* 🖨️ 核心列印過濾規則：列印時只保留計算總結與明細區塊，隱藏所有輸入與操作按鈕 */
     @media print {
-        .stButton, .stForm, header, footer, .no-print {
+        header, footer, nav, 
+        .stForm, 
+        button, 
+        .streamlit-expanderHeader,
+        div[data-testid="stSidebar"] {
             display: none !important;
+        }
+        body {
+            background-color: white !important;
         }
     }
     </style>
@@ -389,7 +397,7 @@ if st.session_state.calculated and st.session_state.results_data is not None:
                 st.write(f"**{round(row['一般用地稅額']):,} 元**")
             with card_col4:
                 st.caption("🏡 自用住宅稅額")
-                st.write(f"**{round(row['自元住宅稅額'] if '自元住宅稅額' in row else row['自用住宅稅額']):,} 元**")
+                st.write(f"**{round(row['自用住宅稅額']):,} 元**")
             st.markdown("<hr style='margin: 10px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
     with st.expander("📝 點此展開完整合併後數據對照表"):
@@ -397,19 +405,13 @@ if st.session_state.calculated and st.session_state.results_data is not None:
         df_display["申報現值總額"] = df_display["申報現值總額"].round()
         df_display["漲價總數額(a)"] = df_display["漲價總數額(a)"].round()
         df_display["一般用地稅額"] = df_display["一般用地稅額"].round()
-        df_display["自用住宅稅額"] = df_display["自용住宅稅額"] if "自용住宅稅額" in df_display else df_display["自用住宅稅額"]
+        df_display["自用住宅稅額"] = df_display["自用住宅稅額"].round()
         st.dataframe(df_display, use_container_width=True)
 
     diff_total = total_gen_tax - total_self_tax
     if diff_total > 0:
         st.success(f"💡 **整體節稅提示：** 若全部土地皆符合自用住宅資格，採用自用住宅總計可比一般用地**節省約 {round(diff_total):,} 元**！")
 
-    # --- 8. 穩定可靠的列印輸出指引與按鈕 ---
+    # --- 8. 列印輸出指引 ---
     st.markdown("---")
-    st.info("💡 **列印說明：** 點擊下方按鈕或直接按下鍵盤快捷鍵 **`Ctrl + P`**（Mac 為 `Cmd + P`），即可將本頁試算報表列印成紙本或儲存為 PDF！")
-    
-    print_col1, _ = st.columns([1, 4])
-    with print_col1:
-        # 改用標準 Streamlit 按鈕觸發網頁重新整理與列印提示
-        if st.button("🖨️ 準備列印報表", use_container_width=True, type="secondary"):
-            st.toast("請按鍵盤快捷鍵 Ctrl + P (或 Cmd + P) 開啟列印視窗！", icon="🖨️")
+    st.info("💡 **列印說明：** 當您按下鍵盤快捷鍵 **`Ctrl + P`**（Mac 為 `Cmd + P`）時，系統會**自動隱藏所有輸入與操作按鈕**，只保留上方的加總數據與下方的土地明細列表供您列印或儲存為 PDF！")
