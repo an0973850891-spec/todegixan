@@ -6,7 +6,7 @@ from datetime import datetime
 # 設定網頁標題與版面
 st.set_page_config(page_title="土地增值稅即時試算系統", page_icon="🏡", layout="wide")
 
-# --- 🎨 自定義 CSS 美化與「強制只列印結果區域」的樣式 ---
+# --- 🎨 自定義 CSS 美化（淺橘底色與放大字體） ---
 st.markdown("""
     <style>
     h1 {
@@ -31,22 +31,6 @@ st.markdown("""
         border: 1px solid #FFEDD5;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
-    
-    /* 🖨️ 強制列印設定：只讓指定結果區塊顯示，其餘全部隱藏 */
-    @media print {
-        body * {
-            visibility: hidden !important;
-        }
-        #printable-result-area, #printable-result-area * {
-            visibility: visible !important;
-        }
-        #printable-result-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-        }
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -62,6 +46,7 @@ current_month = now.month
 if os.path.exists(r"D:\PY\cpispleym.xls"):
     excel_path = r"D:\PY\cpispleym.xls"
 else:
+    # 雲端 Streamlit Cloud 環境（與程式同目錄）
     excel_path = "cpispleym.xls"
 
 @st.cache_data
@@ -339,7 +324,7 @@ if st.session_state.land_list:
         st.session_state.calculated = True
         st.session_state.results_data = df_grouped
 
-# --- 7. 呈現累加與合併計算結果總表（包在 #printable-result-area 內，列印只會印出這區塊） ---
+# --- 7. 呈現累加與合併計算結果總表 ---
 if st.session_state.calculated and st.session_state.results_data is not None:
     df_grouped = st.session_state.results_data
 
@@ -349,22 +334,7 @@ if st.session_state.calculated and st.session_state.results_data is not None:
     total_current_val = df_grouped["申報現值總額"].sum()
 
     st.markdown("---")
-    
-    # ✨ 核心包覆容器：列印時只保留此容器內的加總與明細表
-    st.markdown('<div id="printable-result-area">', unsafe_allow_html=True)
-
-    head_col1, head_col2 = st.columns([3, 1])
-    with head_col1:
-        st.subheader("📊 多筆土地試算總結與同地號合併明細")
-    with head_col2:
-        csv_data = df_grouped.to_csv(index=False).encode('utf-8-sig')
-        st.download_button(
-            label="📥 下載明細報表 (CSV)",
-            data=csv_data,
-            file_name=f"土地增值稅試算報表_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+    st.subheader("📊 多筆土地試算總結與同地號合併明細")
 
     sum_col1, sum_col2, sum_col3 = st.columns(3)
     with sum_col1:
@@ -416,10 +386,3 @@ if st.session_state.calculated and st.session_state.results_data is not None:
     diff_total = total_gen_tax - total_self_tax
     if diff_total > 0:
         st.success(f"💡 **整體節稅提示：** 若全部土地皆符合自用住宅資格，採用自用住宅總計可比一般用地**節省約 {round(diff_total):,} 元**！")
-
-    # 關閉列印專屬容器
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # --- 8. 列印說明與導引 ---
-    st.markdown("---")
-    st.info("💡 **列印說明：** 請直接按鍵盤快捷鍵 **`Ctrl + P`**（Mac 為 `Cmd + P`），預覽畫面將會**自動隱藏上方輸入欄位**，只保留上方的加總數據與下方的土地明細列表！")
