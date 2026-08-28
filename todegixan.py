@@ -31,6 +31,12 @@ st.markdown("""
         border: 1px solid #FFEDD5;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
+    /* 隱藏列印時不需要的網頁元素 */
+    @media print {
+        .stButton, .stForm, header, footer {
+            display: none !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -46,7 +52,6 @@ current_month = now.month
 if os.path.exists(r"D:\PY\cpispleym.xls"):
     excel_path = r"D:\PY\cpispleym.xls"
 else:
-    # 雲端 Streamlit Cloud 環境（與程式同目錄）
     excel_path = "cpispleym.xls"
 
 @st.cache_data
@@ -156,9 +161,9 @@ with col_c2:
 with st.form("add_land_form", clear_on_submit=False):
     col3, col4 = st.columns(2)
     with col3:
-        section_name = st.text_input("地段名稱(手動輸入)", placeholder="例如：茄安段")
+        section_name = st.text_input("地段名稱", placeholder="例如：茄安段")
     with col4:
-        land_number = st.text_input("地號(手動輸入)", placeholder="例如：497")
+        land_number = st.text_input("地號", placeholder="例如：497")
 
     st.markdown("---")
     
@@ -169,19 +174,19 @@ with st.form("add_land_form", clear_on_submit=False):
     with col6:
         last_month = st.selectbox("前次移轉月份", options=list(range(1, 13)), index=7)
     with col7:
-        curr_val_str = st.text_input("公告現值 (元/m²)(手動輸入)", value="0.0")
+        curr_val_str = st.text_input("公告現值 (元/m²)", value="0.0")
     with col8:
-        last_val_str = st.text_input("原地價 (元/m²)(手動輸入)", value="0.0")
+        last_val_str = st.text_input("原地價 (元/m²)", value="0.0")
 
     col9, col10, col11, col12 = st.columns(4)
     with col9:
-        area_str = st.text_input("面積 (m²)(手動輸入)", value="0.0")
+        area_str = st.text_input("面積 (m²)", value="0.0")
     with col10:
-        num_str = st.text_input("持分分子(手動輸入)", value="1.0")
+        num_str = st.text_input("持分分子", value="1.0")
     with col11:
-        den_str = st.text_input("持分分母(手動輸入)", value="1.0")
+        den_str = st.text_input("持分分母", value="1.0")
     with col12:
-        offset_str = st.text_input("抵繳地價稅額 (元)(手動輸入)", value="0.0")
+        offset_str = st.text_input("抵繳地價稅額 (元)", value="0.0")
 
     add_submitted = st.form_submit_button("➕ 加入清單", use_container_width=True)
 
@@ -324,7 +329,7 @@ if st.session_state.land_list:
         st.session_state.calculated = True
         st.session_state.results_data = df_grouped
 
-# --- 7. 呈現累加與合併計算結果總表 ---
+# --- 7. 呈現累加與合併計算結果總表與列印匯出功能 ---
 if st.session_state.calculated and st.session_state.results_data is not None:
     df_grouped = st.session_state.results_data
 
@@ -334,7 +339,21 @@ if st.session_state.calculated and st.session_state.results_data is not None:
     total_current_val = df_grouped["申報現值總額"].sum()
 
     st.markdown("---")
-    st.subheader("📊 多筆土地試算總結與同地號合併明細")
+    
+    # 標題與列印/匯出按鈕列
+    head_col1, head_col2 = st.columns([3, 1])
+    with head_col1:
+        st.subheader("📊 多筆土地試算總結與同地號合併明細")
+    with head_col2:
+        # 提供 CSV 下載按鈕
+        csv_data = df_grouped.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 下載明細報表 (CSV)",
+            data=csv_data,
+            file_name=f"土地增值稅試算報表_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
     sum_col1, sum_col2, sum_col3 = st.columns(3)
     with sum_col1:
@@ -386,3 +405,17 @@ if st.session_state.calculated and st.session_state.results_data is not None:
     diff_total = total_gen_tax - total_self_tax
     if diff_total > 0:
         st.success(f"💡 **整體節稅提示：** 若全部土地皆符合自用住宅資格，採用自用住宅總計可比一般用地**節省約 {round(diff_total):,} 元**！")
+
+    # --- 8. 列印輸出專屬按鈕 ---
+    st.markdown("---")
+    print_col1, _ = st.columns([1, 4])
+    with print_col1:
+        # 利用 JavaScript 觸發瀏覽器列印功能
+        st.markdown(
+            """
+            <button onclick="window.print();" style="width: 100%; background-color: #2563EB; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                🖨️ 列印輸出報表
+            </button>
+            """,
+            unsafe_allow_html=True
+        )
