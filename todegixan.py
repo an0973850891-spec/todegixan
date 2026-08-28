@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
+from fpdf import FPDF
+import tempfile
 
 # 設定網頁標題與版面
 st.set_page_config(page_title="土地增值稅即時試算系統", page_icon="🏡", layout="wide")
 
-# --- 🎨 自定義 CSS 美化與「強制只列印結果區域」的樣式 ---
+# --- 🎨 自定義 CSS 美化 ---
 st.markdown("""
     <style>
     h1 {
@@ -30,22 +32,6 @@ st.markdown("""
         border-radius: 12px;
         border: 1px solid #FFEDD5;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    }
-    
-    /* 🖨️ 強制列印設定：只讓指定結果區塊顯示，其餘全部隱藏 */
-    @media print {
-        body * {
-            visibility: hidden !important;
-        }
-        #printable-result-area, #printable-result-area * {
-            visibility: visible !important;
-        }
-        #printable-result-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -124,7 +110,6 @@ if "calculated" not in st.session_state:
     st.session_state.calculated = False
 if "results_data" not in st.session_state:
     st.session_state.results_data = None
-
 if "land_list" not in st.session_state:
     st.session_state.land_list = []
 
@@ -231,12 +216,11 @@ if add_submitted:
         st.session_state.land_list.append(new_land)
         st.success(f"✅ 已成功加入：{selected_county}{selected_district} {section_name}{land_number}號")
 
-# --- 6. 顯示目前已加入的土地清單與刪除/修改功能 ---
+# --- 6. 顯示目前已加入的土地清單與刪除功能 ---
 if st.session_state.land_list:
     st.markdown("---")
     st.subheader("📋 目前已加入的土地清單")
     
-    # 逐筆顯示清單與刪除按鈕，讓使用者可以精準刪除錯誤的某一筆
     for i, land_item in enumerate(st.session_state.land_list):
         c_info, c_del = st.columns([5, 1])
         with c_info:
@@ -350,7 +334,7 @@ if st.session_state.land_list:
         st.session_state.calculated = True
         st.session_state.results_data = df_grouped
 
-# --- 7. 呈現累加與合併計算結果總表與列印匯出功能 ---
+# --- 7. 呈現累加與合併計算結果總表與輸出 PDF 功能 ---
 if st.session_state.calculated and st.session_state.results_data is not None:
     df_grouped = st.session_state.results_data
 
@@ -361,13 +345,11 @@ if st.session_state.calculated and st.session_state.results_data is not None:
 
     st.markdown("---")
     
-    # ✨ 核心包覆容器：列印時只保留此容器內的加總與明細表
-    st.markdown('<div id="printable-result-area">', unsafe_allow_html=True)
-
-    head_col1, head_col2 = st.columns([3, 1])
+    head_col1, head_col2 = st.columns([2, 2])
     with head_col1:
         st.subheader("📊 多筆土地試算總結與同地號合併明細")
     with head_col2:
+        # 下載 CSV 按鈕
         csv_data = df_grouped.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
             label="📥 下載明細報表 (CSV)",
@@ -416,20 +398,52 @@ if st.session_state.calculated and st.session_state.results_data is not None:
                 st.write(f"**{round(row['自用住宅稅額']):,} 元**")
             st.markdown("<hr style='margin: 10px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
-    with st.expander("📝 點此展開完整合併後數據對照表"):
-        df_display = df_grouped.copy()
-        df_display["申報現值總額"] = df_display["申報現值總額"].round()
-        df_display["漲價總數額(a)"] = df_display["漲價總數額(a)"].round()
-        df_display["一般用地稅額"] = df_display["一般用地稅額"].round()
-        df_display["自用住宅稅額"] = df_display["自用住宅稅額"].round()
-        st.dataframe(df_display, use_container_width=True)
-
     diff_total = total_gen_tax - total_self_tax
     if diff_total > 0:
         st.success(f"💡 **整體節稅提示：** 若全部土地皆符合自用住宅資格，採用自用住宅總計可比一般用地**節省約 {round(diff_total):,} 元**！")
 
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # --- 8. 列印說明與導引 ---
+    # --- 8. 產出 PDF 檔案並提供下載按鈕 ---
     st.markdown("---")
-    st.info("💡 **列印說明：** 當您按下鍵盤快捷鍵 **`Ctrl + P`**（Mac 為 `Cmd + P`）時，系統會**自動隱藏所有輸入與操作按鈕**，只保留上方的加總數據與下方的土地明細列表供您列印或儲存為 PDF！")
+    
+    def generate_pdf():
+        pdf = FPDF()
+        pdf.add_page()
+        # 使用內建支援英文與基本字體
+        pdf.set_font("Arial", "B", 16)
+        pdf.cell(0, 10, "Land Value Increment Tax Calculation Report", ln=True, align="C")
+        pdf.set_font("Arial", "", 10)
+        pdf.cell(0, 8, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True, align="C")
+        pdf.ln(5)
+
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 8, f"Total General Tax: {round(total_gen_tax):,} NTD", ln=True)
+        pdf.cell(0, 8, f"Total Self-Use Tax: {round(total_self_tax):,} NTD", ln=True)
+        pdf.ln(5)
+
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(0, 8, "Detailed List (Merged by Land No.):", ln=True)
+        pdf.set_font("Arial", "", 10)
+
+        for _, r in df_grouped.iterrows():
+            line1 = f"Land: {r['土地名稱 / 地號']}"
+            line2 = f"Appreciation: {round(r['漲價總數額(a)']):,} | Gen Tax: {round(r['一般用地稅額']):,} | Self Tax: {round(r['自用住宅稅額']):,}"
+            pdf.cell(0, 6, line1, ln=True)
+            pdf.cell(0, 6, line2, ln=True)
+            pdf.ln(3)
+
+        # 儲存至暫存檔
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        pdf.output(tmp_file.name)
+        return tmp_file.name
+
+    if st.button("📄 產生並下載 PDF 報表", use_container_width=True, type="primary"):
+        pdf_path = generate_pdf()
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+        st.download_button(
+            label="⬇️ 點此下載 PDF 檔案",
+            data=pdf_bytes,
+            file_name=f"土地增值稅試算報告_{datetime.now().strftime('%Y%m%d')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
